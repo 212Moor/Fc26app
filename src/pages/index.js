@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import parser from '@/parser/parser'
 import { buildGameState, posGroup, mapPos } from '@/lib/dataBuilder'
+import NationFlag from '../lib/NationFlag';
+import Calendar from '../lib/calender'; // Attention à l'orthographe 'calender' comme ton nom de fichier
 const Buffer = require('buffer/').Buffer
 
 // ── Stats labels ─────────────────────────────────────────────────────────
@@ -24,89 +26,41 @@ const fmtStar=n=>'★'.repeat(Math.min(n,5))+'☆'.repeat(Math.max(0,5-n))
 // ═══════════════════════════════════════════════════════════════════════════
 // FORMATIONS — 15 dispositifs avec coordonnées pitch (%)
 // ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// FORMATIONS — 29 dispositifs avec coordonnées pitch (%)
+// ═══════════════════════════════════════════════════════════════════════════
 const FORMATIONS = {
-  '4-3-3 (Attack)': [
-    {p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},
-    {p:'LM',x:22,y:53},{p:'CM',x:50,y:51},{p:'RM',x:78,y:53},
-    {p:'LW',x:18,y:22},{p:'ST',x:50,y:16},{p:'RW',x:82,y:22},
-  ],
-  '4-3-3 (Hold)': [
-    {p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},
-    {p:'LDM',x:30,y:58},{p:'CM',x:50,y:55},{p:'RDM',x:70,y:58},
-    {p:'LW',x:18,y:26},{p:'ST',x:50,y:18},{p:'RW',x:82,y:26},
-  ],
-  '4-2-3-1': [
-    {p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},
-    {p:'LDM',x:36,y:60},{p:'RDM',x:64,y:60},
-    {p:'LAM',x:16,y:40},{p:'CAM',x:50,y:40},{p:'RAM',x:84,y:40},
-    {p:'ST',x:50,y:17},
-  ],
-  '4-4-2': [
-    {p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},
-    {p:'LM',x:10,y:53},{p:'LCM',x:37,y:53},{p:'RCM',x:63,y:53},{p:'RM',x:90,y:53},
-    {p:'LS',x:36,y:17},{p:'RS',x:64,y:17},
-  ],
-  '4-4-2 (Flat)': [
-    {p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},
-    {p:'LM',x:10,y:53},{p:'LCM',x:36,y:57},{p:'RCM',x:64,y:57},{p:'RM',x:90,y:53},
-    {p:'LS',x:33,y:19},{p:'RS',x:67,y:19},
-  ],
-  '4-5-1': [
-    {p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},
-    {p:'LM',x:8,y:50},{p:'LCM',x:28,y:53},{p:'CM',x:50,y:54},{p:'RCM',x:72,y:53},{p:'RM',x:92,y:50},
-    {p:'ST',x:50,y:18},
-  ],
-  '4-1-4-1': [
-    {p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},
-    {p:'CDM',x:50,y:63},
-    {p:'LM',x:10,y:44},{p:'LCM',x:33,y:46},{p:'RCM',x:67,y:46},{p:'RM',x:90,y:44},
-    {p:'ST',x:50,y:18},
-  ],
-  '4-1-2-1-2': [
-    {p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},
-    {p:'CDM',x:50,y:63},
-    {p:'LM',x:22,y:50},{p:'RM',x:78,y:50},
-    {p:'CAM',x:50,y:38},
-    {p:'LS',x:33,y:18},{p:'RS',x:67,y:18},
-  ],
-  '4-3-2-1': [
-    {p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},
-    {p:'LCM',x:25,y:57},{p:'CM',x:50,y:58},{p:'RCM',x:75,y:57},
-    {p:'LAM',x:30,y:38},{p:'RAM',x:70,y:38},
-    {p:'ST',x:50,y:18},
-  ],
-  '3-5-2': [
-    {p:'GK',x:50,y:92},{p:'LCB',x:22,y:77},{p:'CB',x:50,y:79},{p:'RCB',x:78,y:77},
-    {p:'LM',x:8,y:54},{p:'LCM',x:30,y:56},{p:'CM',x:50,y:56},{p:'RCM',x:70,y:56},{p:'RM',x:92,y:54},
-    {p:'LS',x:34,y:18},{p:'RS',x:66,y:18},
-  ],
-  '3-4-3': [
-    {p:'GK',x:50,y:92},{p:'LCB',x:22,y:77},{p:'CB',x:50,y:79},{p:'RCB',x:78,y:77},
-    {p:'LM',x:14,y:56},{p:'LCM',x:38,y:58},{p:'RCM',x:62,y:58},{p:'RM',x:86,y:56},
-    {p:'LW',x:18,y:22},{p:'ST',x:50,y:17},{p:'RW',x:82,y:22},
-  ],
-  '3-4-2-1': [
-    {p:'GK',x:50,y:92},{p:'LCB',x:22,y:77},{p:'CB',x:50,y:79},{p:'RCB',x:78,y:77},
-    {p:'LM',x:14,y:58},{p:'LCM',x:36,y:60},{p:'RCM',x:64,y:60},{p:'RM',x:86,y:58},
-    {p:'LAM',x:30,y:38},{p:'RAM',x:70,y:38},
-    {p:'ST',x:50,y:18},
-  ],
-  '5-3-2': [
-    {p:'GK',x:50,y:92},{p:'LB',x:8,y:71},{p:'LCB',x:26,y:77},{p:'CB',x:50,y:79},{p:'RCB',x:74,y:77},{p:'RB',x:92,y:71},
-    {p:'LCM',x:25,y:53},{p:'CM',x:50,y:51},{p:'RCM',x:75,y:53},
-    {p:'LS',x:34,y:18},{p:'RS',x:66,y:18},
-  ],
-  '5-4-1': [
-    {p:'GK',x:50,y:92},{p:'LB',x:8,y:71},{p:'LCB',x:26,y:77},{p:'CB',x:50,y:79},{p:'RCB',x:74,y:77},{p:'RB',x:92,y:71},
-    {p:'LM',x:10,y:52},{p:'LCM',x:34,y:54},{p:'RCM',x:66,y:54},{p:'RM',x:90,y:52},
-    {p:'ST',x:50,y:18},
-  ],
-  '5-2-1-2': [
-    {p:'GK',x:50,y:92},{p:'LB',x:8,y:71},{p:'LCB',x:26,y:77},{p:'CB',x:50,y:79},{p:'RCB',x:74,y:77},{p:'RB',x:92,y:71},
-    {p:'LDM',x:32,y:60},{p:'RDM',x:68,y:60},
-    {p:'CAM',x:50,y:41},
-    {p:'LS',x:33,y:18},{p:'RS',x:67,y:18},
-  ],
+  '3-4-1-2': [{p:'GK',x:50,y:92},{p:'LCB',x:25,y:77},{p:'CB',x:50,y:79},{p:'RCB',x:75,y:77},{p:'LM',x:12,y:52},{p:'LCM',x:35,y:55},{p:'RCM',x:65,y:55},{p:'RM',x:88,y:52},{p:'CAM',x:50,y:38},{p:'LS',x:35,y:18},{p:'RS',x:65,y:18}],
+  '3-4-2-1': [{p:'GK',x:50,y:92},{p:'LCB',x:25,y:77},{p:'CB',x:50,y:79},{p:'RCB',x:75,y:77},{p:'LM',x:12,y:52},{p:'LCM',x:35,y:55},{p:'RCM',x:65,y:55},{p:'RM',x:88,y:52},{p:'LAM',x:30,y:35},{p:'RAM',x:70,y:35},{p:'ST',x:50,y:16}],
+  '3-1-4-2': [{p:'GK',x:50,y:92},{p:'LCB',x:25,y:77},{p:'CB',x:50,y:79},{p:'RCB',x:75,y:77},{p:'CDM',x:50,y:65},{p:'LM',x:12,y:48},{p:'LCM',x:35,y:48},{p:'RCM',x:65,y:48},{p:'RM',x:88,y:48},{p:'LS',x:35,y:18},{p:'RS',x:65,y:18}],
+  '3-5-2':   [{p:'GK',x:50,y:92},{p:'LCB',x:25,y:77},{p:'CB',x:50,y:79},{p:'RCB',x:75,y:77},{p:'LDM',x:35,y:63},{p:'RDM',x:65,y:63},{p:'LM',x:10,y:50},{p:'RM',x:90,y:50},{p:'CAM',x:50,y:38},{p:'LS',x:35,y:18},{p:'RS',x:65,y:18}],
+  '3-4-3':   [{p:'GK',x:50,y:92},{p:'LCB',x:25,y:77},{p:'CB',x:50,y:79},{p:'RCB',x:75,y:77},{p:'LM',x:12,y:52},{p:'LCM',x:35,y:55},{p:'RCM',x:65,y:55},{p:'RM',x:88,y:52},{p:'LW',x:18,y:25},{p:'ST',x:50,y:16},{p:'RW',x:82,y:25}],
+  
+  '4-1-2-1-2': [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'CDM',x:50,y:63},{p:'LM',x:15,y:48},{p:'RM',x:85,y:48},{p:'CAM',x:50,y:35},{p:'LS',x:35,y:18},{p:'RS',x:65,y:18}],
+  '4-1-2-1-2 (2)': [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'CDM',x:50,y:63},{p:'LCM',x:30,y:50},{p:'RCM',x:70,y:50},{p:'CAM',x:50,y:35},{p:'LS',x:35,y:18},{p:'RS',x:65,y:18}],
+  '4-1-3-2': [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'CDM',x:50,y:63},{p:'LM',x:15,y:45},{p:'CM',x:50,y:45},{p:'RM',x:85,y:45},{p:'LS',x:35,y:18},{p:'RS',x:65,y:18}],
+  '4-1-4-1': [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'CDM',x:50,y:63},{p:'LM',x:12,y:45},{p:'LCM',x:35,y:45},{p:'RCM',x:65,y:45},{p:'RM',x:88,y:45},{p:'ST',x:50,y:16}],
+  '4-2-1-3': [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'LDM',x:35,y:60},{p:'RDM',x:65,y:60},{p:'CAM',x:50,y:40},{p:'LW',x:18,y:22},{p:'ST',x:50,y:16},{p:'RW',x:82,y:22}],
+  '4-2-2-2': [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'LDM',x:35,y:60},{p:'RDM',x:65,y:60},{p:'LAM',x:20,y:40},{p:'RAM',x:80,y:40},{p:'LS',x:35,y:18},{p:'RS',x:65,y:18}],
+  '4-2-3-1': [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'LDM',x:35,y:60},{p:'RDM',x:65,y:60},{p:'LAM',x:25,y:38},{p:'CAM',x:50,y:38},{p:'RAM',x:75,y:38},{p:'ST',x:50,y:16}],
+  '4-2-3-1 (2)': [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'LDM',x:35,y:60},{p:'RDM',x:65,y:60},{p:'LM',x:12,y:45},{p:'CAM',x:50,y:38},{p:'RM',x:88,y:45},{p:'ST',x:50,y:16}],
+  '4-2-4':   [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'LCM',x:35,y:55},{p:'RCM',x:65,y:55},{p:'LW',x:15,y:25},{p:'LS',x:38,y:18},{p:'RS',x:62,y:18},{p:'RW',x:85,y:25}],
+  '4-3-1-2': [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'LCM',x:25,y:55},{p:'CM',x:50,y:55},{p:'RCM',x:75,y:55},{p:'CAM',x:50,y:38},{p:'LS',x:35,y:18},{p:'RS',x:65,y:18}],
+  '4-3-2-1': [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'LCM',x:25,y:55},{p:'CM',x:50,y:55},{p:'RCM',x:75,y:55},{p:'LF',x:30,y:28},{p:'RF',x:70,y:28},{p:'ST',x:50,y:16}],
+  '4-3-3':   [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'LCM',x:25,y:55},{p:'CM',x:50,y:55},{p:'RCM',x:75,y:55},{p:'LW',x:18,y:22},{p:'ST',x:50,y:16},{p:'RW',x:82,y:22}],
+  '4-3-3 (2)': [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'CDM',x:50,y:63},{p:'LCM',x:30,y:50},{p:'RCM',x:70,y:50},{p:'LW',x:18,y:22},{p:'ST',x:50,y:16},{p:'RW',x:82,y:22}],
+  '4-3-3 (3)': [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'LDM',x:35,y:60},{p:'RDM',x:65,y:60},{p:'CM',x:50,y:45},{p:'LW',x:18,y:22},{p:'ST',x:50,y:16},{p:'RW',x:82,y:22}],
+  '4-3-3 (4)': [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'LCM',x:30,y:55},{p:'RCM',x:70,y:55},{p:'CAM',x:50,y:38},{p:'LW',x:18,y:22},{p:'ST',x:50,y:16},{p:'RW',x:82,y:22}],
+  '4-4-1-1 (2)': [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'LM',x:12,y:52},{p:'LCM',x:35,y:55},{p:'RCM',x:65,y:55},{p:'RM',x:88,y:52},{p:'CAM',x:50,y:35},{p:'ST',x:50,y:16}],
+  '4-4-2':   [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'LM',x:12,y:52},{p:'LCM',x:35,y:55},{p:'RCM',x:65,y:55},{p:'RM',x:88,y:52},{p:'LS',x:35,y:18},{p:'RS',x:65,y:18}],
+  '4-4-2 (2)': [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'LM',x:12,y:48},{p:'LDM',x:35,y:60},{p:'RDM',x:65,y:60},{p:'RM',x:88,y:48},{p:'LS',x:35,y:18},{p:'RS',x:65,y:18}],
+  '4-5-1':   [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'CM',x:50,y:55},{p:'LM',x:12,y:48},{p:'RM',x:88,y:48},{p:'LAM',x:30,y:35},{p:'RAM',x:70,y:35},{p:'ST',x:50,y:16}],
+  '4-5-1 (2)': [{p:'GK',x:50,y:92},{p:'LB',x:13,y:73},{p:'LCB',x:36,y:77},{p:'RCB',x:64,y:77},{p:'RB',x:87,y:73},{p:'LM',x:12,y:50},{p:'LCM',x:30,y:55},{p:'CM',x:50,y:58},{p:'RCM',x:70,y:55},{p:'RM',x:88,y:50},{p:'ST',x:50,y:16}],
+  
+  '5-2-1-2': [{p:'GK',x:50,y:92},{p:'LWB',x:10,y:71},{p:'LCB',x:28,y:77},{p:'CB',x:50,y:79},{p:'RCB',x:72,y:77},{p:'RWB',x:90,y:71},{p:'LCM',x:35,y:55},{p:'RCM',x:65,y:55},{p:'CAM',x:50,y:38},{p:'LS',x:35,y:18},{p:'RS',x:65,y:18}],
+  '5-2-3':   [{p:'GK',x:50,y:92},{p:'LWB',x:10,y:71},{p:'LCB',x:28,y:77},{p:'CB',x:50,y:79},{p:'RCB',x:72,y:77},{p:'RWB',x:90,y:71},{p:'LCM',x:35,y:55},{p:'RCM',x:65,y:55},{p:'LW',x:18,y:25},{p:'ST',x:50,y:16},{p:'RW',x:82,y:25}],
+  '5-3-2':   [{p:'GK',x:50,y:92},{p:'LWB',x:10,y:71},{p:'LCB',x:28,y:77},{p:'CB',x:50,y:79},{p:'RCB',x:72,y:77},{p:'RWB',x:90,y:71},{p:'LCM',x:25,y:55},{p:'CM',x:50,y:55},{p:'RCM',x:75,y:55},{p:'LS',x:35,y:18},{p:'RS',x:65,y:18}],
+  '5-4-1':   [{p:'GK',x:50,y:92},{p:'LWB',x:10,y:71},{p:'LCB',x:28,y:77},{p:'CB',x:50,y:79},{p:'RCB',x:72,y:77},{p:'RWB',x:90,y:71},{p:'LM',x:12,y:52},{p:'LCM',x:35,y:55},{p:'RCM',x:65,y:55},{p:'RM',x:88,y:52},{p:'ST',x:50,y:16}],
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -433,7 +387,7 @@ function SquadPage({players}){
         <div className="table-wrap"><table>
           <thead><tr>
             <Th k="jerseynumber"l="#"/><th>Joueur</th><Th k="overall"l="OVR"/><Th k="potential"l="POT"/>
-            <th>Pos</th><Th k="stats.finishing"l="FIN"/><Th k="stats.dribbling"l="DRI"/>
+            <Th k="preferredposition" l="Pos"/><Th k="stats.finishing"l="FIN"/><Th k="stats.dribbling"l="DRI"/>
             <Th k="stats.short_passing"l="PAS"/><Th k="stats.sprint_speed"l="VIT"/>
             <Th k="stats.defensive_awareness"l="DEF"/><Th k="stats.stamina"l="END"/>
             <Th k="leaguegoals"l="Buts"/><Th k="appearances"l="Matchs"/>
@@ -443,7 +397,13 @@ function SquadPage({players}){
             {list.map(p=>{const s=p.stats;return(
               <tr key={p.playerid}className={sel?.playerid===p.playerid?'row-sel':''}style={{cursor:'pointer'}}onClick={()=>setSel(p)}>
                 <td style={{color:'#8b949e'}}>{p.jerseynumber??'—'}</td>
-                <td><div style={{fontWeight:600}}>{p.name}</div>{p.isloaned&&<div style={{fontSize:10,color:'#d29922'}}>Prêt·{p.loanedfrom}</div>}</td>
+                <td>
+                  <div style={{fontWeight:600, display:'flex', alignItems:'center'}}>
+                    <NationFlag nationalityId={p.nationality} /> 
+                    {p.name}
+                  </div>
+                  {p.isloaned&&<div style={{fontSize:10,color:'#d29922'}}>Prêt·{p.loanedfrom}</div>}
+                </td>
                 <td><Oval v={p.overall}size={28}/></td>
                 <td style={{color:'#8b949e'}}>{p.potential}</td>
                 <td><Pos p={p.preferredposition}/></td>
@@ -467,16 +427,59 @@ function SquadPage({players}){
 // ════════════════════════════════════════════════════════════════════════════
 // TACTICS — Redesigné
 // ════════════════════════════════════════════════════════════════════════════
-function TacticsPage({players}){
-  const[form,setForm]=useState('4-3-3 (Attack)')
+// ════════════════════════════════════════════════════════════════════════════
+// TACTICS — Avec Sauvegarde Automatique (LocalStorage)
+// ════════════════════════════════════════════════════════════════════════════
+function TacticsPage({players, teamId}){
+  const[form,setForm]=useState('4-3-3')
   const[slots,setSlots]=useState({})
   const[activeSl,setActiveSl]=useState(null)
   const[pickSearch,setPickSearch]=useState('')
   const[selP,setSelP]=useState(null)
+  const[posFilter,setPosFilter]=useState('all')
 
-  const layout=FORMATIONS[form]??FORMATIONS['4-3-3 (Attack)']
+  // 1. CHARGEMENT : Au lancement, on récupère la tactique sauvegardée du navigateur
+  useEffect(() => {
+    if (!teamId) return;
+    const savedData = localStorage.getItem(`fc26_tactics_${teamId}`);
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        if (parsed.form && FORMATIONS[parsed.form]) {
+          setForm(parsed.form);
+        }
+        if (parsed.slots) {
+          const restoredSlots = {};
+          // On re-transforme les ID sauvegardés en vrais objets joueurs
+          Object.entries(parsed.slots).forEach(([index, playerId]) => {
+            const playerObj = players.find(p => p.playerid === playerId);
+            if (playerObj) restoredSlots[index] = playerObj;
+          });
+          setSlots(restoredSlots);
+        }
+      } catch (e) {
+        console.error("Erreur lecture sauvegarde tactique", e);
+      }
+    }
+  }, [teamId, players]);
+
+  // 2. SAUVEGARDE : À chaque modification (joueur ou dispositif), on met à jour le navigateur
+  useEffect(() => {
+    if (!teamId) return;
+    const slotsToSave = {};
+    // On ne sauvegarde que les ID des joueurs pour alléger la mémoire
+    Object.entries(slots).forEach(([index, player]) => {
+      if (player) slotsToSave[index] = player.playerid;
+    });
+    localStorage.setItem(`fc26_tactics_${teamId}`, JSON.stringify({ form: form, slots: slotsToSave }));
+  }, [form, slots, teamId]);
+
+  const layout=FORMATIONS[form]??FORMATIONS['4-3-3']
   const usedIds=new Set(Object.values(slots).map(p=>p.playerid))
   const available=players.filter(p=>!usedIds.has(p.playerid))
+    .filter(p=>posFilter==='all'||p.posgroup===posFilter||p.preferredposition===posFilter)
+    .filter(p=>!pickSearch||p.name.toLowerCase().includes(pickSearch.toLowerCase()))
+    .sort((a,b)=>b.overall-a.overall).slice(0,60)
     .filter(p=>!pickSearch||p.name.toLowerCase().includes(pickSearch.toLowerCase()))
     .sort((a,b)=>b.overall-a.overall).slice(0,60)
 
@@ -486,7 +489,7 @@ function TacticsPage({players}){
   const autoFill=()=>{
     const used=new Set();const ns={}
     layout.forEach((slot,i)=>{
-      const g=slot.p==='GK'?'GK':['LB','RB','LCB','RCB','CB'].includes(slot.p)?'DEF':['ST','LS','RS','LW','RW','RF','LF'].includes(slot.p)?'ATT':'MID'
+      const g=slot.p==='GK'?'GK':['LB','RB','LCB','RCB','CB','LWB','RWB'].includes(slot.p)?'DEF':['ST','LS','RS','LW','RW','RF','LF'].includes(slot.p)?'ATT':'MID'
       const c=players.filter(p=>!used.has(p.playerid)&&p.posgroup===g).sort((a,b)=>b.overall-a.overall)[0]
              ??players.filter(p=>!used.has(p.playerid)).sort((a,b)=>b.overall-a.overall)[0]
       if(c){ns[i]=c;used.add(c.playerid)}
@@ -499,15 +502,20 @@ function TacticsPage({players}){
 
   return(
     <div>
-      {/* Formation picker */}
-      <div className="form-grid">
-        {Object.keys(FORMATIONS).map(f=>(
-          <button key={f}className={`form-btn${form===f?' active-form':''}`}
-            onClick={()=>{setForm(f);setSlots({})}}>
-            <span className="form-num">{f.split(' ')[0]}</span>
-            <span style={{fontSize:10,color:form===f?'#3fb950':'#555'}}>{f.includes('(')?f.slice(f.indexOf('(')):''}</span>
-          </button>
-        ))}
+      {/* Formation picker avec menu déroulant pour les 29 compos */}
+      <div style={{ marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <span style={{ fontWeight: 600, color: '#8b949e' }}>Dispositif :</span>
+        <select 
+          className="inp" 
+          value={form} 
+          onChange={(e) => { setForm(e.target.value); setSlots({}); }}
+          style={{ width: '200px', fontSize: '14px', fontWeight: 'bold' }}
+        >
+          {Object.keys(FORMATIONS).map(f => (
+            <option key={f} value={f}>{f}</option>
+          ))}
+        </select>
+        <span style={{ color: '#3fb950', fontSize: '11px', marginLeft: '10px' }}>✓ Sauvegarde Auto activée</span>
       </div>
 
       <div style={{display:'grid',gridTemplateColumns:'1fr 270px',gap:16}}>
@@ -519,15 +527,13 @@ function TacticsPage({players}){
             {totalOvr>0&&<span style={{marginLeft:'auto',color:statColor(totalOvr),fontWeight:800,fontSize:20}}>OVR {totalOvr}</span>}
           </div>
 
-          <div className="pitch-outer"style={{height:500}}>
+          <div className="pitch-outer"style={{height:800}}>
             <div className="pitch-stripe"/>
-            {/* Lignes */}
             <div className="pitch-line"style={{left:'5%',right:'5%',top:1,height:1}}/>
             <div className="pitch-line"style={{left:'5%',right:'5%',bottom:1,height:1}}/>
             <div className="pitch-line"style={{left:'5%',right:'5%',top:'50%',height:1}}/>
             <div className="pitch-line"style={{left:'5%',width:1,top:'5%',bottom:'5%'}}/>
             <div className="pitch-line"style={{right:'5%',width:1,top:'5%',bottom:'5%'}}/>
-            {/* Surfaces */}
             <div className="pitch-line"style={{left:'30%',right:'30%',top:'5%',height:'14%'}}/>
             <div className="pitch-line"style={{left:'30%',right:'30%',bottom:'5%',height:'14%'}}/>
             <div className="pitch-line"style={{left:'38%',right:'38%',top:'5%',height:'7%'}}/>
@@ -535,36 +541,48 @@ function TacticsPage({players}){
             <div className="pitch-center-circle"/>
 
             {layout.map((slot,i)=>{
-              const p=slots[i]
-              const isActive=activeSl===i
+              const p=slots[i]; const isActive=activeSl===i
               const g=p?posGroup(p.preferredposition):null
               const bg=p?posColor(g):'#1a3020'
               return(
-                <div key={i}className="pslot"style={{left:`${slot.x}%`,top:`${slot.y}%`}}
-                  onClick={()=>{if(p){setSelP(p)}else{setActiveSl(isActive?null:i)}}}>
-                  <div className={`pslot-disc${isActive?' active-slot':p?'':' empty-slot'}`}
-                    style={{background:p?bg:'#1a3020'}}>
-                    {p?(
-                      <>
-                        <div className="pslot-ovr">{p.overall}</div>
-                        <div className="pslot-pos">{p.preferredposition}</div>
-                      </>
-                    ):(
-                      <div className="pslot-empty-label">{slot.p}</div>
-                    )}
+                <div key={i} className="pslot" style={{left:`${slot.x}%`,top:`${slot.y}%`}}
+                  // 🔥 AJOUT DU DRAG & DROP ICI 🔥
+                  draggable={!!p} // Le joueur est "attrapable" s'il y a quelqu'un
+                  onDragStart={(e) => {
+                    if (p) e.dataTransfer.setData('sourceSlot', i.toString());
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault(); // Autorise le "lâcher"
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const sourceSlot = e.dataTransfer.getData('sourceSlot');
+                    if (sourceSlot && sourceSlot !== i.toString()) {
+                      const srcIdx = parseInt(sourceSlot, 10);
+                      const tgtIdx = i;
+                      // On échange les deux slots
+                      setSlots(prev => {
+                        const newSlots = { ...prev };
+                        const temp = newSlots[tgtIdx];
+                        newSlots[tgtIdx] = newSlots[srcIdx];
+                        if (temp) {
+                          newSlots[srcIdx] = temp;
+                        } else {
+                          delete newSlots[srcIdx];
+                        }
+                        return newSlots;
+                      });
+                      setActiveSl(null); // On désélectionne
+                    }
+                  }}
+                  onClick={()=>{if(p){setSelP(p)}else{setActiveSl(isActive?null:i)}}}
+                >
+                  <div className={`pslot-disc${isActive?' active-slot':p?'':' empty-slot'}`} style={{background:p?bg:'#1a3020'}}>
+                    {p?(<><div className="pslot-ovr">{p.overall}</div><div className="pslot-pos">{p.preferredposition}</div></>) : (<div className="pslot-empty-label">{slot.p}</div>)}
                   </div>
                   <div className="pslot-name">{p?p.name.split(' ').pop():''}</div>
-                  {isActive&&!p&&(
-                    <div style={{position:'absolute',top:'110%',left:'50%',transform:'translateX(-50%)',
-                      background:'#1f6feb',color:'#fff',borderRadius:4,padding:'1px 6px',fontSize:9,
-                      whiteSpace:'nowrap',zIndex:5}}>← sélectionner</div>
-                  )}
-                  {p&&(
-                    <button onClick={e=>{e.stopPropagation();remove(i)}}
-                      style={{position:'absolute',top:-4,right:-4,background:'#f85149',border:'none',
-                        color:'#fff',borderRadius:'50%',width:14,height:14,cursor:'pointer',
-                        fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',zIndex:4}}>✕</button>
-                  )}
+                  {isActive&&!p&&(<div style={{position:'absolute',top:'110%',left:'50%',transform:'translateX(-50%)',background:'#1f6feb',color:'#fff',borderRadius:4,padding:'1px 6px',fontSize:9,whiteSpace:'nowrap',zIndex:5}}>← sélectionner</div>)}
+                  {p&&(<button onClick={e=>{e.stopPropagation();remove(i)}} style={{position:'absolute',top:-4,right:-4,background:'#f85149',border:'none',color:'#fff',borderRadius:'50%',width:14,height:14,cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',zIndex:4}}>✕</button>)}
                 </div>
               )
             })}
@@ -576,18 +594,21 @@ function TacticsPage({players}){
           <div style={{fontSize:12,fontWeight:600,color:activeSl!==null?'#58a6ff':'#8b949e',marginBottom:8}}>
             {activeSl!==null?`▶ Poste : ${layout[activeSl]?.p}`:'Cliquer un emplacement vide'}
           </div>
-          <input className="inp"placeholder="🔍 Rechercher…"value={pickSearch}
-            onChange={e=>setPickSearch(e.target.value)}style={{width:'100%',marginBottom:8}}/>
+
+          {/* 🔥 Les nouveaux boutons de filtres Tactique 🔥 */}
+          <div style={{display:'flex', gap: '4px', marginBottom: '8px'}}>
+            {['all','GK','DEF','MID','ATT'].map(p=>(
+              <button key={p} className={`btn ${posFilter===p?'btn-blue':'btn-ghost'}`} style={{padding:'5px', fontSize: 10, flex: 1}} onClick={()=>setPosFilter(p)}>{p==='all'?'Tous':p}</button>
+            ))}
+          </div>
+
+          <input className="inp"placeholder="🔍 Rechercher…"value={pickSearch} onChange={e=>setPickSearch(e.target.value)}style={{width:'100%',marginBottom:8}}/>
           <div style={{maxHeight:440,overflowY:'auto',display:'flex',flexDirection:'column',gap:5}}>
             {available.map(p=>(
-              <div key={p.playerid}className="pcard"
-                onClick={()=>{if(activeSl!==null)assign(activeSl,p);else setSelP(p)}}>
+              <div key={p.playerid}className="pcard" onClick={()=>{if(activeSl!==null)assign(activeSl,p);else setSelP(p)}}>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <Oval v={p.overall}size={26}/>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:11,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div>
-                    <Pos p={p.preferredposition}/>
-                  </div>
+                  <div style={{flex:1,minWidth:0}}><div style={{fontSize:11,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div><Pos p={p.preferredposition}/></div>
                   <span style={{fontSize:10,color:'#8b949e'}}>{p.potential}</span>
                 </div>
               </div>
@@ -596,7 +617,6 @@ function TacticsPage({players}){
         </div>
       </div>
 
-      {/* XI résumé */}
       {Object.keys(slots).length>0&&(
         <div className="card"style={{marginTop:14}}>
           <div className="card-title">📋 XI Titulaire — {form}</div>
@@ -605,13 +625,10 @@ function TacticsPage({players}){
               const p=slots[i];if(!p)return null
               const g=posGroup(p.preferredposition)
               return(
-                <div key={i}style={{background:'#1c2128',borderRadius:6,padding:'6px 10px',
-                  border:`1px solid ${posColor(g)}40`,minWidth:110}}>
+                <div key={i}style={{background:'#1c2128',borderRadius:6,padding:'6px 10px',border:`1px solid ${posColor(g)}40`,minWidth:110}}>
                   <div style={{fontSize:10,color:'#8b949e'}}>{slot.p}</div>
                   <div style={{fontSize:12,fontWeight:600}}>{p.name}</div>
-                  <div style={{display:'flex',gap:3,alignItems:'center',marginTop:2}}>
-                    <Oval v={p.overall}size={20}/><Pos p={p.preferredposition}/>
-                  </div>
+                  <div style={{display:'flex',gap:3,alignItems:'center',marginTop:2}}><Oval v={p.overall}size={20}/><Pos p={p.preferredposition}/></div>
                 </div>
               )
             })}
@@ -622,28 +639,47 @@ function TacticsPage({players}){
     </div>
   )
 }
-
 // ════════════════════════════════════════════════════════════════════════════
-// YOUTH ACADEMY
+// YOUTH ACADEMY — Avec filtres et tris
 // ════════════════════════════════════════════════════════════════════════════
 function YouthPage({youth}){
   const[sel,setSel]=useState(null)
+  const[pos,setPos]=useState('all')
+  const[sort,setSort]=useState({key:'potential',dir:-1})
+
   if(!youth?.length)return<div className="alert al-info">Aucun joueur dans le centre de formation (trainingteamplayers vide).</div>
+
+  const setS=k=>setSort(s=>({key:k,dir:s.key===k?-s.dir:-1}))
+  const Th=({k,l})=><th onClick={()=>setS(k)}>{l}{sort.key===k?(sort.dir<0?' ▼':' ▲'):''}</th>
+
+  const list = [...youth]
+    .filter(p=>pos==='all'||p.posgroup===pos||p.preferredposition===pos)
+    .sort((a,b)=>{
+      const va=a[sort.key]??0; const vb=b[sort.key]??0;
+      if(typeof va==='string') return va.localeCompare(vb)*sort.dir;
+      return (va-vb)*sort.dir;
+    })
+
   return(
     <div>
-      <div style={{color:'#8b949e',fontSize:12,marginBottom:12}}>
-        {youth.length} jeune(s) — Données extraites directement depuis la sauvegarde
+      <div className="filter-row">
+        {['all','GK','DEF','MID','ATT'].map(p=>(
+          <button key={p}className={`btn ${pos===p?'btn-blue':'btn-ghost'}`}style={{padding:'5px 11px'}}onClick={()=>setPos(p)}>{p==='all'?'Tous':p}</button>
+        ))}
+        <span style={{color:'#8b949e',fontSize:12,marginLeft:'auto'}}>{list.length} jeunes</span>
       </div>
       <div className="card"style={{padding:0}}>
         <div className="table-wrap"><table>
           <thead><tr>
-            <th>Joueur</th><th>OVR</th><th>POT</th><th>Pos</th>
-            <th>Âge</th><th>Tier</th><th>Mois squad</th><th>Buts</th><th>Matchs</th>
+            <Th k="name" l="Joueur"/><Th k="overall" l="OVR"/><Th k="potential" l="POT"/><Th k="preferredposition" l="Pos"/>
+            <Th k="age" l="Âge"/><Th k="playertier" l="Tier"/><Th k="monthsinsquad" l="Mois squad"/><Th k="leaguegoals" l="Buts"/><Th k="appearances" l="Matchs"/>
           </tr></thead>
           <tbody>
-            {[...youth].sort((a,b)=>b.potential-a.potential).map(p=>(
+            {list.map(p=>(
               <tr key={p.playerid}style={{cursor:'pointer'}}onClick={()=>setSel(p)}>
-                <td style={{fontWeight:600}}>{p.name}</td>
+                <td style={{fontWeight:600, display:'flex', alignItems:'center'}}>
+                  <NationFlag nationalityId={p.nationality} />{p.name}
+                </td>
                 <td><Oval v={p.overall}size={26}/></td>
                 <td style={{color:statColor(p.potential??0),fontWeight:700}}>{p.potential}</td>
                 <td><Pos p={p.preferredposition}/></td>
@@ -978,6 +1014,7 @@ const NAV=[
   {id:'palmares',icon:'🥇',label:'Palmarès',    section:null},
   {id:'youth',   icon:'🌱',label:'Académie',    section:null},
   {id:'transfers',icon:'💸',label:'Transferts', section:null},
+  {id:'calendar',icon:'📅',label:'Calendrier',  section:null}, // 👈 AJOUTE CETTE LIGNE ICI
   {id:'scout',   icon:'🌍',label:'Scout Mondial',section:'GLOBAL'},
   {id:'change',  icon:'🔄',label:'Changer club',section:null},
   {id:'newfile', icon:'📂',label:'Nouveau fichier',section:null},
@@ -1018,12 +1055,14 @@ export default function Home(){
                 </div>
               )}
               {page==='squad'    &&<SquadPage players={players}/>}
-              {page==='tactics'  &&<TacticsPage players={players}/>}
+              {page==='tactics'  &&<TacticsPage players={players} teamId={tid}/>}
               {page==='compare'  &&<ComparePage players={players}/>}
               {page==='manager'  &&<ManagerPage mgr={gs.manager}/>}
               {page==='palmares' &&<PalmaresPage palmares={gs.palmares}manager={gs.manager}teams={gs.teams}/>}
               {page==='youth'    &&<YouthPage youth={gs.youthPlayers}/>}
               {page==='transfers'&&<TransfersPage state={gs}/>}
+              {page==='calendar' &&<Calendar calendarData={gs.calendar} myTeamId={gs.manager.clubteamid} teamsById={gs.teamsById}/>} 
+              {page==='scout'    &&(<><div className="page-title">🌍 Scout Mondial</div><ScoutingPage state={gs}/></>)}
               {page==='scout'    &&(<><div className="page-title">🌍 Scout Mondial</div><ScoutingPage state={gs}/></>)}
             </main>
           </div>
