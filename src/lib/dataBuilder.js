@@ -1,14 +1,3 @@
-/**
- * dataBuilder.js — v3
- * Supporte deux formats de fichier noms :
- *  FORMAT EA    : nameid,commentaryid,name
- *  FORMAT KAGGLE: player_id,short_name,long_name,overall,...
- *
- * Jeunes : extraits depuis trainingteamplayers (mêmes stats que pros)
- *          + trainingteamplayernames (noms en-save)
- * Palmarès : career_managerhistory (par saison)
- */
-
 export const POS_MAP = {
   0:'GK',3:'RB',4:'RCB',5:'CB',6:'LCB',7:'LB',
   9:'RDM',10:'CDM',11:'LDM',12:'RM',13:'RCM',14:'CM',15:'LCM',16:'LM',
@@ -45,7 +34,6 @@ function parseCSVRow(line){
   r.push(c);return r
 }
 
-// ── Détection et parsing du fichier de noms ───────────────────────────────
 export function parsePlayerNamesFile(csv){
   const lines=csv.replaceAll('\r','').split('\n').filter(l=>l.trim())
   if(!lines.length)return{type:'ea',map:{}}
@@ -67,7 +55,6 @@ export function parsePlayerNamesFile(csv){
     return{type:'kaggle',map}
   }
 
-  // Format EA
   const map={}
   for(let i=1;i<lines.length;i++){
     const line=lines[i],fc=line.indexOf(','),sc=line.indexOf(',',fc+1)
@@ -77,7 +64,7 @@ export function parsePlayerNamesFile(csv){
   return{type:'ea',map}
 }
 
-function detectDBs(data){
+function detectDBs(data) {
   let cDB=null,sDB=null
   for(const db of data){
     if(!db)continue
@@ -185,28 +172,82 @@ export function buildGameState(data,playerNamesContent){
     }
   }
 
-  // Joueurs normaux
-  const allPlayers=arr(squadsDB,'players').filter(p=>p.gender===0).map(p=>buildPlayer(p,null,null))
+  const youthMeta = idx(arr(careerDB,'career_youthplayers'),'playerid');
+  const youthHistory = idx(arr(careerDB,'career_youthplayerhistory'),'playerid');
 
-  // Jeunes depuis trainingteamplayers (même schéma que players)
-  const youthNamesRaw=idx(arr(squadsDB,'trainingteamplayernames'),'nameid')
-  const youthNames=Object.fromEntries(Object.entries(youthNamesRaw).map(([id,r])=>[id,r.name??'']))
-  const youthMeta=idx(arr(careerDB,'career_youthplayers'),'playerid')
-  const youthHistory=idx(arr(careerDB,'career_youthplayerhistory'),'playerid')
+  const editedNamesByPlayerId = {};
+  arr(squadsDB, 'editedplayernames').forEach(r => {
+      const first = r.firstname || '';
+      const last = r.surname || ''; 
+      const common = r.commonname || '';
+      editedNamesByPlayerId[r.playerid] = common || `${first} ${last}`.trim();
+  });
 
-  const youthPlayers=arr(squadsDB,'trainingteamplayers').map(p=>{
-    const y=buildPlayer(p,youthNames,youthMeta[p.playerid])
-    const hist=youthHistory[p.playerid]
-    y.leaguegoals=hist?.goals??0
-    y.appearances=hist?.appearances??0
-    return y
-  })
+  const dcNamesByNameId = {};
+  arr(squadsDB, 'dcplayernames').forEach(r => {
+      dcNamesByNameId[r.nameid] = r.name || '';
+  });
+
+  const fc25YouthNames = {};
+  arr(squadsDB, 'trainingteamplayernames').forEach(r => {
+      fc25YouthNames[r.nameid] = r.name ?? r.firstname ?? r.lastname ?? '';
+  });
+
+  let allPlayers = [];
+  let youthPlayers = [];
+  let rawYouth = arr(squadsDB,'trainingteamplayers');
+  const seenIds = new Set(); 
+
+  if (rawYouth.length > 0) {
+      arr(squadsDB,'players').forEach(p => {
+          if (seenIds.has(p.playerid)) return;
+          seenIds.add(p.playerid);
+          allPlayers.push(buildPlayer(p, null, null));
+      });
+      rawYouth.forEach(p => {
+          if (seenIds.has(p.playerid)) return;
+          seenIds.add(p.playerid);
+          const y = buildPlayer(p, fc25YouthNames, youthMeta[p.playerid]);
+          const hist = youthHistory[p.playerid];
+          y.leaguegoals = hist?.goals ?? 0;
+          y.appearances = hist?.appearances ?? 0;
+          youthPlayers.push(y);
+      });
+  } else {
+      arr(squadsDB,'players').forEach(p => {
+          if (seenIds.has(p.playerid)) return; 
+          seenIds.add(p.playerid);
+
+          let generatedName = editedNamesByPlayerId[p.playerid];
+          if (!generatedName) {
+              const dcFirst = dcNamesByNameId[p.firstnameid] || '';
+              const dcLast = dcNamesByNameId[p.lastnameid] || '';
+              const dcCommon = dcNamesByNameId[p.commonnameid] || '';
+              if (dcCommon || dcFirst || dcLast) {
+                  generatedName = dcCommon || `${dcFirst} ${dcLast}`.trim();
+              }
+          }
+
+          const y = buildPlayer(p, null, youthMeta[p.playerid]);
+          if (generatedName) y.name = generatedName;
+
+          if (youthMeta[p.playerid]) {
+              y.isyouth = true;
+              const hist = youthHistory[p.playerid];
+              y.leaguegoals = hist?.goals ?? 0;
+              y.appearances = hist?.appearances ?? 0;
+              youthPlayers.push(y);
+          } else {
+              allPlayers.push(y);
+          }
+      });
+  }
 
   const playersById=Object.fromEntries([...allPlayers,...youthPlayers].map(p=>[p.playerid,p]))
   const playersByTeam={}
   allPlayers.forEach(p=>{if(p.teamid!==null){if(!playersByTeam[p.teamid])playersByTeam[p.teamid]=[];playersByTeam[p.teamid].push(p)}})
 
-  // Manager
+  // 🔴 RESTAURATION DES STATS MANAGER
   const mgr=mgrArr[0]??{}
   const manager={
     clubteamid:mgr.clubteamid,teamname:teams[mgr.clubteamid]?.teamname??'',
@@ -218,7 +259,7 @@ export function buildGameState(data,playerNamesContent){
     objectiveResults:[mgr.seasonobjectiveresult1,mgr.seasonobjectiveresult2,mgr.seasonobjectiveresult3],
   }
 
-  // Palmarès
+  // 🔴 RESTAURATION DU PALMARÈS
   const managerHistory=arr(careerDB,'career_managerhistory').map(h=>({
     season:h.season??0,teamid:h.teamid,
     teamname:teams[h.teamid]?.teamname??`Équipe #${h.teamid}`,
@@ -244,17 +285,40 @@ export function buildGameState(data,playerNamesContent){
     totalGames:managerHistory.reduce((s,h)=>s+(h.wins+h.draws+h.losses),0),
   }
 
+  // 🔴 RESTAURATION DES TRANSFERTS
   const presigned=arr(careerDB,'career_presignedcontract').map(c=>({...c,player:playersById[c.playerid]??null,newteam:teams[c.teamid]?.teamname??`#${c.teamid}`}))
   const transferBlock=arr(careerDB,'career_transferblock').map(t=>({...t,player:playersById[t.playerid]??null}))
+  
   const compById=idx(arr(squadsDB,'competition'),'competitionid')
   const competitions=arr(careerDB,'career_competitionprogress').map(cp=>({...cp,name:compById[cp.competitionid]?.competitionname??`Comp #${cp.competitionid}`}))
 
-  return{
+  return {
     namesFileType:nf.type,
     userTeamId,teams,teamsById:teams,leagueById,
     players:playersById,playersByTeam,allPlayers,youthPlayers,
-    manager,palmares,presigned,transferBlock,competitions,
-    dbTables:{career:Object.keys(careerDB),squads:Object.keys(squadsDB)},
+    manager,palmares, presigned, transferBlock, competitions,
+    
+    // Ajouts Bonus
+    calendar: arr(careerDB, 'career_calendar'),
+    bonusData: {
+      youthModels: {
+        fat: arr(careerDB, 'career_youth_fat'),
+        flesh: arr(careerDB, 'career_youth_flesh'),
+        skeletal: arr(careerDB, 'career_youth_skeletal'),
+        skins: arr(careerDB, 'career_youth_skins')
+      },
+      nameGenerationPool: {
+        birthingPool: arr(careerDB, 'career_birthingpool'),
+        common: arr(careerDB, 'career_commonnames'),
+        first: arr(careerDB, 'career_firstnames'),
+        last: arr(careerDB, 'career_lastnames')
+      },
+      regensAndGrowth: {
+        createdPlayers: arr(careerDB, 'career_createplayerattributes'),
+        regenPlayers: arr(careerDB, 'career_regenplayerattributes'),
+        growthCurves: arr(careerDB, 'career_growthcurveinfo')
+      }
+    },
     raw:{careerDB,squadsDB},
   }
 }
